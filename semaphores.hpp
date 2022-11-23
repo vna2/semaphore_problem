@@ -14,8 +14,6 @@
 
 #define shared_mem_size sizeof(shared_mem*)
  
-#define DEBUG -1
-
 void die(char er[1000]);
 
 class semaphore_name {
