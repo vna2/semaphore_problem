@@ -12,16 +12,28 @@
 
 using namespace std;
 
-class shared_mem{
+class segment_info{
+  public:
+      int line;
+      char info[50];
+  
+};
+
+class shared_mem_info{
  public:
-   int  child_id;
-   int  segment;
-   int  line;
-   int  time_start;
-   int  time_end;
-   char line_detail[200];
-   char file_seg_name[50];
-   char sem_file_name[5];
+   int segments;
+   int lines_per_segm;
+   int request_per_child; 
+
+};
+
+class shared_mem_child{
+ public:
+   int segment_child;
+   int line_child;
+   int time_start;
+   int time_end; 
+   segment_info segment_detail[1000];
 };
 
 

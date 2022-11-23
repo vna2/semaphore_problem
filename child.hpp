@@ -25,19 +25,20 @@ int child_procces(){
 
     int child_pid = getpid();
     char file_sha_mem[50];
-    sprintf(file_sha_mem,"keys/shared_mem.key");
+    sprintf(file_sha_mem,"keys/shared_mem_info.key");
  
 
     // Attach the shared memory segment.
-    int I_mem_id=get_memory_id_from_file(file_sha_mem , shared_mem_size);
-    shared_mem* shared_memory = (shared_mem*) shmat(I_mem_id, NULL, 0);
-    if(shared_memory==(void*)-1)die("shared memory atached problem");
+    int I_mem_id=get_memory_id_from_file(file_sha_mem , shared_mem_info_size);
+    shared_mem_info* shared_memory_inf = (shared_mem_info*) shmat(I_mem_id, NULL, 0);
+    if(shared_memory_inf==(void*)-1)die("shared memory atached problem");
 
-    //print-details
-    cout << child_pid << ": " << shared_memory->line_detail << endl;
+    //to-print-delete
+    cout << "sheared_memory_detail_child:!~~~~  lines: " << shared_memory_inf->lines_per_segm <<
+    "request_per_child: " << shared_memory_inf->request_per_child << endl;
 
-    // Detach the shared memory segment
-    shmdt(shared_memory);
+    
+   
     
     return 0;
 

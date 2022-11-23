@@ -12,7 +12,8 @@
 #include "child.hpp"
 #include "shared_memory_class.hpp"
 
-#define shared_mem_size sizeof(shared_mem*)
+#define shared_mem_info_size sizeof(shared_mem_info*)
+#define shared_mem_chi_size sizeof(shared_mem_child*)
  
 void die(char er[1000]);
 
