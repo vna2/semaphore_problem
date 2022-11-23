@@ -16,7 +16,7 @@
 #include "shared_memory_class.hpp"
 #include "semaphores.hpp"
 
-#define MAX_LINE_LENGTH 80
+#define MAX_LINE_LENGTH 200
 
 using namespace std;
 
@@ -34,12 +34,10 @@ int child_procces(){
     if(shared_memory==(void*)-1)die("shared memory atached problem");
 
     //print-details
-    cout << child_pid << ": " << shared_memory->file_seg_name << endl;
+    cout << child_pid << ": " << shared_memory->line_detail << endl;
 
     // Detach the shared memory segment
     shmdt(shared_memory);
-
-
     
     return 0;
 

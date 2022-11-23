@@ -89,13 +89,13 @@ int main(int argc, char const *argv[]) {
         int rand_line    = rand() % segments;
 
         //print-details
-        cout << endl <<"for_loop" <<file_sha_mem << endl;
+        cout << endl<< endl<< endl << endl <<"for_loop: " <<file_sha_mem << endl;
 
         // Attach the shared memory segment.
         int I_mem_id=get_memory_id_from_file(file_sha_mem, shared_mem_size);
         shared_mem* shared_memory = (shared_mem*) shmat(I_mem_id, NULL, 0);
         if(shared_memory==(void*)-1)die("shared memory atached problem");
-        shared_memory = new shared_mem;
+        //shared_memory = new shared_mem;
         
         shared_memory->line    = rand_line;
         shared_memory->segment = rand_segnent;
@@ -111,17 +111,18 @@ int main(int argc, char const *argv[]) {
         }
 
         //print-details
-        cout << endl << "file seg name " << file_seg_name << endl;
+        cout << endl << "file seg name: " << file_seg_name << " line rand: " << rand_line<< endl;
 
-        for (int i = 0; i < rand_line; i++){
-            char line_detail[200];
-            fgets(line_detail, MAX_LINE_LENGTH, file_inp);
-
-            if (i==rand_line-1){
-                strcpy(shared_memory->line_detail,line_detail);
+        for (int i = 0; i <= rand_line; i++){
+            char line_detail_[200];
+            fgets(line_detail_, MAX_LINE_LENGTH, file_inp);
+            //print-details
+            cout << "line that read: " << line_detail_ << endl;
+            if (i == rand_line){
+                strcpy(shared_memory->line_detail,line_detail_);
                 
                 //print-details
-                cout << "aaaaaa" <<endl << endl << shared_memory->line_detail <<endl << endl;
+                cout << "line that copyed on shared memory: "  << shared_memory->line_detail << endl;
                 
             }
         }
@@ -170,6 +171,7 @@ int generate_segments(char file_name_[50], int lines_seg,int segments){
                 sprintf(file_seg_name,"files/segment_%d.txt",segm_count);
                 file_segm = fopen(file_seg_name, "a+");
                 if (!file_segm) {
+                    cout << "error on file on segment creation\n";
                     return -1;
                 }
                 segm_count++;

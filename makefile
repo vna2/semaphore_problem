@@ -1,4 +1,3 @@
-
 OBJS	= main.o
 SOURCE	= main.cpp
 HEADER	= semaphores.hpp shared_memory_class.hpp child.hpp
