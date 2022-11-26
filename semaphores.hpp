@@ -13,7 +13,7 @@
 #include "shared_memory_class.hpp"
 
 #define shared_mem_info_size sizeof(shared_mem_info*)
-#define shared_mem_chi_size sizeof(shared_mem_child*)
+#define shared_mem_req_size sizeof(shared_mem_child_re*)
  
 void die(char er[1000]);
 
@@ -98,7 +98,9 @@ int get_semaphore_id_from_file(char* file_name, unsigned int num=0){
     key_t sem_key;
     /*Recover sem_key from file*/
     sem_fd = open(final_file_name, O_RDONLY);
-    if (sem_fd < 0) die("Could not open sem key for reading");
+    char temp_log[100];
+    sprintf( temp_log,"Could not open sem key for reading: %s" ,file_name);
+    if (sem_fd < 0) die(temp_log);
     if (read(sem_fd, &sem_key, sizeof(key_t)) != sizeof(key_t)) die("Error reading the semaphore key");
     close(sem_fd);
     // Now obtain the (hopefully) existing sem

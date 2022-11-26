@@ -20,7 +20,7 @@ main.o: main.cpp
 
 # clean house
 clean:
-	rm -f $(OBJS) $(OUT) keys/* files/*
+	rm -f $(OBJS) $(OUT) keys/* files/* 
 
 # run the program
 run: $(OUT)

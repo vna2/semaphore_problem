@@ -16,7 +16,6 @@ class segment_info{
   public:
       int line;
       char info[50];
-  
 };
 
 class shared_mem_info{
@@ -24,10 +23,9 @@ class shared_mem_info{
    int segments;
    int lines_per_segm;
    int request_per_child; 
-
 };
 
-class shared_mem_child{
+class shared_mem_child_re{
  public:
    int segment_child;
    int line_child;
