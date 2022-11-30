@@ -18,22 +18,38 @@ class segment_info{
       char info[50];
 };
 
-class shared_mem_info{
- public:
-   int segments;
-   int lines_per_segm;
-   int request_per_child; 
-};
-
-class shared_mem_child_re{
+class shared_mem_req{
  public:
    int segment_child;
    int line_child;
    int time_start;
    int time_end; 
-   segment_info segment_detail[1000];
+   int child_num;
 };
 
+class shared_mem_resp{
+ public:
+   segment_info segment_detail[1000];
+   int segment;
+};
 
+class semaphore_segm{
+  public: 
+    char req_name[50];
+    sem_t* req_sem;
+    char resp_name[50];
+    sem_t* resp_sem;
+};
+
+class semaphore_child{
+  public: 
+    char chi_name[50];
+    sem_t* chi_sem;
+};
+
+//class info_for_queue{
+//  public:
+//   
+//};
 
 #endif

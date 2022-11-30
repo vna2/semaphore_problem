@@ -11,6 +11,7 @@ LFLAGS	 = -lpthread
 
 all: $(OBJS)
 	$(CC) -g $(OBJS) -o $(OUT) $(LFLAGS)
+	mkdir keys
 
 
 # create/compile the individual files >>separately<<
