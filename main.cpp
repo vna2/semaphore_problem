@@ -12,7 +12,7 @@
 #include "semaphores.hpp"
 #include "child.hpp"
 
-#define SEM_PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+  
 #define MAX_LINE_LENGTH 200
 #define DEBUG 2
 
@@ -26,6 +26,8 @@ int main(int argc, char const *argv[]) {
     cout << argv[2] << endl;
     cout << argv[3] << endl;
     cout << argv[4] << endl;
+
+    mode_t sem_modes = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 
     //cout << argv[1] << ' ' << argv[2] << ' ' <<argv[3] << ' '<<argv[4] << endl;
     if(argc==1){
@@ -81,7 +83,9 @@ int main(int argc, char const *argv[]) {
     int I_mem_id2 = get_memory_id_from_file(file_sha_mem_resp , shared_mem_resp_size);
     shared_mem_resp* sha_mem_resp = (shared_mem_resp*) shmat(I_mem_id2, NULL, 0);
     if(sha_mem_resp ==(void*)-1)die("shared memory atached problem");
+
     sha_mem_resp->segment = -2;// edo skaei
+
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~Sheared memory~~~~~~~~~~~~~~~~~~~//
@@ -96,15 +100,14 @@ int main(int argc, char const *argv[]) {
         sprintf(sem_name_file_req,"semaphore_req%d",i);
         //to-print-delete
         //cout << "Semaphores details:~~~~~~~~~ name: " << sem_name_file_req << endl;
-        samaphore_names_segm[i].req_sem = sem_open(sem_name_file_req, O_CREAT | O_EXCL, SEM_PERMS, 0);
+        samaphore_names_segm[i].req_sem = generate_semaphore(sem_name_file_req ,sem_modes,0);
         strcpy(samaphore_names_segm[i].req_name,sem_name_file_req);
 
         char sem_name_file_resp[50];
         sprintf(sem_name_file_resp,"semaphore_resp%d",i);
-        samaphore_names_segm[i].resp_sem = sem_open(sem_name_file_resp, O_CREAT | O_EXCL, SEM_PERMS, 0);
+        samaphore_names_segm[i].resp_sem = generate_semaphore(sem_name_file_resp,sem_modes,0);
         strcpy(samaphore_names_segm[i].resp_name,sem_name_file_resp);
     }
-
 
     //for(int i = 0; i < child_num; i++ ){
     //    char sem_name_file_child[50];
@@ -120,18 +123,18 @@ int main(int argc, char const *argv[]) {
     //    strcpy(samaphore_names_child[i].chi_name,sem_name_file_child);
     //}
     char sem_mutex[50];
-    sprintf(sem_mutex,"mutex");
-    sem_t * mutex = sem_open(sem_mutex, O_CREAT | O_EXCL, SEM_PERMS, 0);
+    sprintf(sem_mutex,"mutex-1");
+    sem_t * mutex = generate_semaphore(sem_mutex , sem_modes,0);
+    
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~Semaphore~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~~~~end~~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //to-print-delete
-    
-    for(int i = 0; i < segments; i++ ){
-        cout << "Shared memory array ~~~~~~ resp name : " << samaphore_names_segm[i].resp_name <<
-        "req name : " << samaphore_names_segm[i].req_name <<endl;
-    }
+    //for(int i = 0; i < segments; i++ ){
+    //    cout << "Shared memory array ~~~~~~ resp name : " << samaphore_names_segm[i].resp_name <<
+    //    "req name : " << samaphore_names_segm[i].req_name <<endl;
+    //}
 
     for (int i = 0; i < child_num; i++) {
 
@@ -142,17 +145,30 @@ int main(int argc, char const *argv[]) {
             int child_num_= i;
             for (int i = 0; i < request_per_child; i++){
                 int line_rand      =  rand() %  segments_line;
-                int segments_rand  =  rand() %  segments ;
+                int segments_rand  =  rand() %  segments;
+
                 //to-print-delete
-                cout << "sheared_memory_info_child:!~~~~  segments rand: " <<  segments_rand <<
+                cout << "sheared_memory_info_child:!1~~~~  segments rand: " <<  segments_rand <<
                 "lines rand " <<  line_rand << endl;
                 
-                if (sha_mem_resp->segment = -2 ){
+                if (sha_mem_resp->segment == -2 ){
+                    //to-print-delete
+                    cout << "child - aaaaaaaaaaaaaaaa"<<endl;
+
                     sha_mem_req->line_child    = line_rand;
                     sha_mem_req->segment_child = segments_rand;
                     sha_mem_req->child_num     = child_num_;
-                    
+                    //to-print-delete
+                    cout << "child - aaaaaaaaaaaaaaaa"<<endl;
+
+                    if(sem_post(mutex)< 0){
+                    perror("sem_post(3) error on child");
+                    exit(EXIT_FAILURE);
+                    //to-print-delete
+                    cout << "sheared_memory_info_child:!2~~~~  segments rand: " <<  sha_mem_req->segment_child <<
+                    endl;
                 }
+            }
 
                 if(sha_mem_resp->segment != segments_rand) {
 
@@ -164,12 +180,11 @@ int main(int argc, char const *argv[]) {
                     sha_mem_req->line_child    = line_rand;
                     sha_mem_req->segment_child = segments_rand;
                     sha_mem_req->child_num     = child_num_;
+                    if(sem_post(mutex)< 0){
+                        perror("sem_post(3) error on child");
+                        exit(EXIT_FAILURE);
+                    }
                 } 
-
-                if(sem_post(mutex)< 0){
-                    perror("sem_post(3) error on child");
-                    exit(EXIT_FAILURE);
-                }
 
                 if(sem_wait(samaphore_names_segm[segments_rand].resp_sem )< 0){
                     perror("sem_wait(3) error on child");
@@ -189,7 +204,17 @@ int main(int argc, char const *argv[]) {
     int request_table[child_num];
     int current_segm = -3;
     for (int i = 0; i < max_requests; i++) {
+        if(sem_wait(mutex)< 0){
+            perror("sem_wait(3) error on child");
+            exit(EXIT_FAILURE);
+        }
 
+
+        if(sem_post(samaphore_names_segm[sha_mem_req->segment_child].req_sem )< 0){
+            perror("sem_post(3) error on child");
+            exit(EXIT_FAILURE);
+        }
+        
         if(sem_wait(mutex)< 0){
             perror("sem_wait(3) error on child");
             exit(EXIT_FAILURE);

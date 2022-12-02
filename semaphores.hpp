@@ -17,6 +17,15 @@
  
 void die(char er[1000]);
 
+sem_t* generate_semaphore(char* name , mode_t modes, int val){ 
+    
+    sem_t* sem = sem_open(name, O_CREAT | O_EXCL ,modes ,val);
+    if(sem == SEM_FAILED){
+        sem_unlink(name);
+        sem = sem_open(name, O_CREAT | O_EXCL ,modes ,val);
+    }
+
+}
 
 int generate_memory_segment(key_t mem_key, size_t mem_sz, char* file_name){
     int mem_seg_id,mem_fd;
