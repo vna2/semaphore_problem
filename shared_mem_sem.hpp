@@ -16,7 +16,7 @@
 
 
 #include <iostream>
-#include "shared_memory_class.hpp"
+//#include "shared_memory_class.hpp"
 
 #define shared_mem_resp_size sizeof(shared_mem_resp)
 #define shared_mem_req_size sizeof(shared_mem_req)
@@ -31,8 +31,8 @@ void clear_mem(char* mem_file, int mem_sz);
 int generate_semaphore(key_t sem_key, char* file_name, unsigned int num=0);
 int get_semaphore_id_from_file(char* file_name, unsigned int num=0);
 void initialise_semaphore(int sem_id);
-int semaphore_wait(int sem_id);
-int semaphore_signal(int sem_id);
+int semaphore_wait(int sem_id, char name[50]);
+int semaphore_signal(int sem_id, char name[50]);
 void clear_sem(char* sem_file, unsigned int num=0);
 
 

@@ -1,6 +1,6 @@
-OBJS	= main.o shared_mem_sem.o
-SOURCE	= main.cpp shared_mem_sem.cpp
-HEADER	= shared_mem_sem.hpp shared_memory_class.hpp
+OBJS	= main.o shared_mem_sem.o list.o
+SOURCE	= main.cpp shared_mem_sem.cpp list.cpp
+HEADER	= shared_mem_sem.hpp shared_memory_class.hpp list.hpp
 OUT	= a.out
 CC	 = g++
 FLAGS	 = -g3 -c
@@ -16,6 +16,9 @@ main.o: main.cpp
 
 shared_mem_sem.o: shared_mem_sem.cpp
 	$(CC) $(FLAGS) shared_mem_sem.cpp -lcunit -lcppunit
+
+list.o: list.cpp
+	$(CC) $(FLAGS) list.cpp -lcunit -lcppunit
 
 
 clean:

@@ -10,15 +10,32 @@
 #include <errno.h>
 #include "shared_mem_sem.hpp"
 
-  
-#define MAX_LINE_LENGTH 200
+#define NUM_CHILDREN      10 
+#define REQUEST_PER_CHILD 2
+#define SEGMENTS          4
+#define LINES_PER_SEGMENT 20
+#define MAX_LINE_FILE     200
 
-int DEBUG = 2;
+// struct for request and response shared memory
+typedef struct {
+  int segment;  // segment to load
+  char data[100];  // data for the segment
+} shm_data;
+
+// struct for FIFO priority queue
+typedef struct {
+  int requests[NUM_CHILDREN * REQUEST_PER_CHILD];  // array of requests
+  int front;  // front of the queue
+  int rear;  // rear of the queue
+} request_queue;
+
+//  struct to truck semaphores
+typedef struct {
+  char semaphore_name[50];  // semaphore name
+  key_t  sem_key;  // semaphore key
+} semaphore_name;
 
 using namespace std;
-
-int generate_segments_and_file(char file_name_[50], int lines_seg,int segments);
- 
 
 int main(int argc, char const *argv[]) {
     cout << argv[0] << endl;
@@ -26,29 +43,34 @@ int main(int argc, char const *argv[]) {
     cout << "Max lines of file: " << argv[2] << endl;
     cout << "Sevments Per Line: " << argv[3] << endl;
     cout << "Request Per Child: " << argv[4] << endl;
-
-    mode_t sem_modes = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-
-    //cout << argv[1] << ' ' << argv[2] << ' ' <<argv[3] << ' '<<argv[4] << endl;
+    int child_num;         
+    int max_lines;         
+    int segments_lines;
+    int request_per_child;
+    char file_name[25];
+   
     if(argc==1){
-        cout << "Exit Program Wrong Parameter\n";
-        return -1;
+        cout << "Using default values\n";
+        child_num         = NUM_CHILDREN;
+        max_lines         = MAX_LINE_FILE;
+        segments_lines    = LINES_PER_SEGMENT;
+        request_per_child = REQUEST_PER_CHILD;
+        sprintf(file_name,"input_file.txt");
+    }else{
+        child_num         = atoi(argv[1]);
+        max_lines         = atoi(argv[2]);
+        segments_lines    = atoi(argv[3]);
+        request_per_child = atoi(argv[4]);
+        strcpy(file_name ,argv[5]);
     }
         
-    int child_num         = atoi(argv[1]);
-    int max_lines         = atoi(argv[2]);
-    int segments_line     = atoi(argv[3]);
-    int request_per_child = atoi(argv[4]);
-    char file_name[25];
-    strcpy(file_name ,argv[5]);
-    int segments          = max_lines / segments_line;
-    int max_requests      = segments * request_per_child;
+   
+    int segments          = max_lines / segments_lines;
+    int max_requests      = child_num * request_per_child;
     
-    semaphore_segm  samaphore_names_segm[segments];
-    //semaphore_child samaphore_names_child[child_num];
 
-    if(generate_segments_and_file(file_name,segments_line,segments) == -1 ){
-        cout <<"error on Segment " <<endl;
+    if(generate_segments_and_file(file_name,max_lines,segments_lines) == -1 ){
+        cout <<"error on CREATE FILE " <<endl;
         exit(EXIT_FAILURE);
     }
    
@@ -63,12 +85,11 @@ int main(int argc, char const *argv[]) {
     }  
     char file_sha_mem_req[50];
     sprintf(file_sha_mem_req,"keys/shared_mem_req.key");
-    generate_memory_segment(shared_mem_req_key, shared_mem_req_size,file_sha_mem_req);
-    int I_mem_id1=get_memory_id_from_file(file_sha_mem_req , shared_mem_req_size);
-    shared_mem_req* sha_mem_req = (shared_mem_req*) shmat(I_mem_id1, NULL, 0);
+    generate_memory_segment(shared_mem_req_key, sizeof(shm_data),file_sha_mem_req);
+    int I_mem_id1=get_memory_id_from_file(file_sha_mem_req , sizeof(shm_data));
+    shm_data* sha_mem_req = (shm_data*) shmat(I_mem_id1, NULL, 0);
     if(sha_mem_req ==(void*)-1)die("shared memory atached problem");
-    
-
+     
 
     //shared memory for response
     key_t shared_mem_resp_key = ftok("main.o" ,2);
@@ -78,14 +99,14 @@ int main(int argc, char const *argv[]) {
     }  
     char file_sha_mem_resp[50];
     sprintf(file_sha_mem_resp,"keys/shared_mem_resp.key");
-    generate_memory_segment(shared_mem_resp_key, shared_mem_resp_size,file_sha_mem_resp);
-    int I_mem_id2 = get_memory_id_from_file(file_sha_mem_resp , shared_mem_resp_size);
-    shared_mem_resp* sha_mem_resp = (shared_mem_resp*) shmat(I_mem_id2, NULL, 0);
+    generate_memory_segment(shared_mem_resp_key, sizeof(shm_data),file_sha_mem_resp);
+    int I_mem_id2 = get_memory_id_from_file(file_sha_mem_resp , sizeof(shm_data));
+    shm_data* sha_mem_resp = (shm_data*) shmat(I_mem_id2, NULL, 0);
     if(sha_mem_resp ==(void*)-1)die("shared memory atached problem");
+    
+     
 
-    sha_mem_resp->segment = -2; 
-
-    //shared memory for data log
+    //shared memory for data log fifo requests
     key_t shared_mem_data_log_key = ftok("main.o" ,3);
     if (shared_mem_data_log_key == -1){
         printf("ftok not working\n");
@@ -93,18 +114,11 @@ int main(int argc, char const *argv[]) {
     }  
     char file_shared_mem_data_log[50];
     sprintf(file_shared_mem_data_log,"keys/shared_mem_data_log.key");
-    generate_memory_segment(shared_mem_data_log_key, shared_mem_data_log_size,file_shared_mem_data_log);
-    int I_mem_id3 = get_memory_id_from_file(file_shared_mem_data_log , shared_mem_data_log_size);
-    shared_mem_data_log* sha_mem_data_log = (shared_mem_data_log*) shmat(I_mem_id3, NULL, 0);
+    generate_memory_segment(shared_mem_data_log_key, sizeof(request_queue),file_shared_mem_data_log);
+    int I_mem_id3 = get_memory_id_from_file(file_shared_mem_data_log , sizeof(request_queue));
+    request_queue* sha_mem_data_log = (request_queue*) shmat(I_mem_id3, NULL, 0);
     if(sha_mem_data_log ==(void*)-1)die("shared memory atached problem");
-   
-    //to-print-delete
-    //for(int i=0; i<100; i++){
-    //    cout << "aaaaaaaaa"<<endl;
-    //    cout << sha_mem_data_log->log[i].pid <<endl;
-    //}
-    //return 0;
-
+    
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~Sheared memory~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~~~~~end~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -113,193 +127,163 @@ int main(int argc, char const *argv[]) {
     //~~~~~~~~~~~~~~~~~~~~~Begin~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~Semaphore~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-    //for(int i = 0; i < segments; i++ ){
-    //    char sem_name_file_req[50];
-    //    sprintf(sem_name_file_req,"semaphore_req%d",i);
-    //    //to-print-delete
-    //    //cout << "Semaphores details:~~~~~~~~~ name: " << sem_name_file_req << endl;
-    //    samaphore_names_segm[i].req_sem = generate_semaphore(sem_name_file_req ,sem_modes,0);
-    //    strcpy(samaphore_names_segm[i].req_name,sem_name_file_req);
-//
-    //    char sem_name_file_resp[50];
-    //    sprintf(sem_name_file_resp,"semaphore_resp%d",i);
-    //    samaphore_names_segm[i].resp_sem = generate_semaphore(sem_name_file_resp,sem_modes,0);
-    //    strcpy(samaphore_names_segm[i].resp_name,sem_name_file_resp);
-    //}
-//
-    //for(int i = 0; i < child_num; i++ ){
-    //    char sem_name_file_child[50];
-    //    sprintf(sem_name_file_child,"semaphore_child%d",i);
-    //    //to-print-delete
-    //    //cout << "Semaphores details:~~~~~~~~~ name: " << sem_name_file_req << endl;
-    //    samaphore_names_child[i].chi_sem = generate_semaphore(sem_name_file_child,sem_modes,1);       
-    //    strcpy(samaphore_names_child[i].chi_name,sem_name_file_child);
-    //}
-    //char sem_mutex[50];
-    //sprintf(sem_mutex,"mutex-1");
-    //sem_t * mutex = generate_semaphore(sem_mutex , sem_modes,1);
-//
-    //char sem_mutex2[50];
-    //sprintf(sem_mutex2,"mutex-2");
-    //sem_t * mutex2 = generate_semaphore(sem_mutex , sem_modes,1);
-//
+    semaphore_name samaphore_names_segm[segments];
 
-    key_t mutex_key = ftok("main.o" ,4);
-    if (mutex_key == -1){
+    key_t response_key = ftok("main.o" ,4);
+    if (response_key == -1){
             printf("ftok not working\n");
             cout << strerror(errno) << endl;
     }  
-    char sem_mutex_file[50];
-    sprintf(sem_mutex_file,"keys/mutex");
-    int mutex     = generate_semaphore(mutex_key, sem_mutex_file);
-    int mutex_sem = get_semaphore_id_from_file(sem_mutex_file);
-    semaphore_signal(mutex_sem);
+    char sem_response_file[50];
+    sprintf(sem_response_file,"keys/response.key");
+    int response_id  = generate_semaphore(response_key, sem_response_file);
+    int response_sem = get_semaphore_id_from_file(sem_response_file);
+    initialise_semaphore(response_sem);
+    semaphore_signal(response_sem,sem_response_file);
+    cout << "ID : " << response_sem << "Name : " << sem_response_file << endl;
+  
+
+    key_t sem_request_key = ftok("main.o" ,5);
+    if (sem_request_key == -1){
+            printf("ftok not working\n");
+            cout << strerror(errno) << endl;
+    }  
+    char sem_request_file[50];
+    sprintf(sem_request_file,"keys/request.key");
+    int request_id     = generate_semaphore(sem_request_key, sem_request_file);
+    int request_sem = get_semaphore_id_from_file(sem_request_file);
+    initialise_semaphore(request_sem);
+    cout << "ID : " << request_sem << "Name : " << sem_request_file << endl;
+
     
-
     for(int i = 0; i < segments; i++ ){
-        key_t semaphore_mem_req_key = ftok("main.o" ,i+5);
-        if (semaphore_mem_req_key == -1){
+        key_t semaphore_seg_key = ftok("main.o" ,i+9);
+        if (semaphore_seg_key == -1){
             printf("ftok not working\n");
             cout << strerror(errno) << endl;
         }  
-        char sem_name_file_req[50];
-        sprintf(sem_name_file_req,"keys/semaphore_req%d.key",i);
-        //to-print-delete
-        //cout << "Semaphores details:~~~~~~~~~ name: " << sem_name_file_req << endl;
-        int sem_req=generate_semaphore(semaphore_mem_req_key, sem_name_file_req);
-        samaphore_names_segm[i].req_sem = get_semaphore_id_from_file(sem_name_file_req);
-        initialise_semaphore(sem_req);
+        char seg_file[50];
+        sprintf(seg_file,"keys/sem_seg%d.key",i);
 
-
-        key_t shared_mem_resp_key = ftok("main.o" ,i+segments+6);
-        if (semaphore_mem_req_key == -1){
-            printf("ftok not working\n");
-            cout << strerror(errno) << endl;
-        }  
-        char sem_name_file_resp[50];
-        sprintf(sem_name_file_resp,"keys/semaphore_resp%d.key",i);
-        //to-print-delete
-        //cout << "Semaphores details:~~~~~~~~~ name: " << sem_name_file_req << endl;
-        int sem_resp=generate_semaphore(shared_mem_resp_key, sem_name_file_resp);
-        samaphore_names_segm[i].resp_sem = get_semaphore_id_from_file(sem_name_file_resp);
-        initialise_semaphore(sem_resp);
-        //semaphore_wait(sem_resp);
+        int sem_req=generate_semaphore(semaphore_seg_key, seg_file);
+        samaphore_names_segm[i].sem_key = get_semaphore_id_from_file(seg_file);
+        strcpy(samaphore_names_segm[i].semaphore_name,seg_file);
+        initialise_semaphore(samaphore_names_segm[i].sem_key );
+        cout << "ID : " << samaphore_names_segm[i].sem_key << "Name : " << seg_file << endl;
+        semaphore_signal(samaphore_names_segm[i].sem_key ,seg_file);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~Semaphore~~~~~~~~~~~~~~~~~~~~~~~~//
     //~~~~~~~~~~~~~~~~~~~~~~end~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-    //to-print-delete
-    //for(int i = 0; i < segments; i++ ){
-    //    cout << "Shared memory array ~~~~~~ resp name : " << samaphore_names_segm[i].resp_name <<
-    //    "req name : " << samaphore_names_segm[i].req_name <<endl;
-    //}
+
+ 
+
+    pid_t pid;
+ 
+    for (int c = 0; c < child_num; c++) {
+        pid = fork();
+        if(pid == 0){
+            //child process
+            break;
+        }
+    }  
     
-    int pids[child_num];
+    if (pid == 0) {
+        // child process
+        for (int i = 0; i < REQUEST_PER_CHILD; i++) {
+            // generate a random segment to request
+            int segment = rand() % 100 + 1;
 
-    for (int i = 0; i < child_num; i++) {
+            // wait for the segment semaphore to be available
+            sem_wait(segment_sems[segment - 1]);
 
-        if( (pids[i] = fork()) == 0) {
-            int child_pid = getpid();
-            time_t t;
-            srand((unsigned) time(&t));     
-            int child_number= i;
-            char outname[50];
-            sprintf(outname,"outputs/child%d.%d",child_number,child_pid);
-            FILE *file_output = fopen(outname, "w+");
-            
-            for (int y = 0; y < request_per_child; y++){
-                cout << "child_number: "<< child_number << endl<< endl<< endl<< endl << endl;
+            // wait for the response semaphore to be available
+            sem_wait(response_sem);
 
-                clock_t time_start = clock();
-                int line_rand      =  0;//rand() %  segments_line;
-                int segments_rand  =  0;//rand() %  segments;
-                //if( child_number == 3){
-                //    cout << "aaaaa3 pedi" << endl;
-                //    int line_rand      =  1;//rand() %  segments_line;
-                //    int segments_rand  =  1;//
-                //}
-                                    
-                semaphore_wait(mutex_sem);
-                sha_mem_data_log->log[child_number].pid          = child_pid;
-                sha_mem_data_log->log[child_number].segment_req  = segments_rand;
-                sha_mem_data_log->log[child_number].start_time   = time_start;
-                semaphore_signal(mutex_sem);
-                
-                
-                
-                //for starting the process 
-                if(child_number == 0 && y == 0){
-                    sha_mem_req->line_child    = line_rand;
-                    sha_mem_req->segment_child = segments_rand;
-                    sha_mem_req->pid           = child_pid;
-                    
-                }
-                
-                //if we have different segment load in shared memmory we wait wait
-                if (sha_mem_req->segment_child != segments_rand){
-                   
-                    sha_mem_req->line_child    = line_rand;
-                    sha_mem_req->segment_child = segments_rand;
-                    sha_mem_req->pid           = child_pid;
-                    
-                }
-                
-                clock_t time_end = clock();
-                char line_to_print[500];
-                sprintf(line_to_print ,"Child%d with Pid %d Reads Segment: %d Line:%d time_start: %ld time_stop: %ld Line Detail: %s\n",
-                child_number,child_pid,segments_rand,line_rand,time_start, time_end,sha_mem_resp->segment_detail[line_rand].info);
-                ////to-print-delete
-                cout << "Ta kataferame we did it : " << line_to_print << endl; 
-                fputs(line_to_print,file_output);
-                cout << "mpike sto arxeio toutoutou : " << line_to_print << endl;
-                
+            // set the request shared memory
+            request_shm->segment = segment;
+
+            // add the request to the queue
+            queue->requests[queue->rear] = segment;
+            queue->rear = (queue->rear + 1) % (NUM_CHILDREN * REQUEST_PER_CHILD);
+
+            // signal the request semaphore to let the parent know there is a request
+            sem_post(request_sem);
+
+            // wait for the response semaphore to be available
+            sem_wait(response_sem);
+
+            // print the response data
+            printf("Child %d received response for segment %d: %s\n", getpid(), segment, response_shm->data);
+
+            // signal the response semaphore to indicate the response has been handled
+            sem_post(response_sem);
+
+        }
+    } else {
+        // parent process
+        for (int i = 0; i < NUM_CHILDREN * REQUEST_PER_CHILD; i++) {
+            // wait for the request semaphore to be signaled
+            sem_wait(request_sem);
+
+            // get the next request from the queue
+            int segment = queue->requests[queue->front];
+            queue->front = (queue->front + 1) % (NUM_CHILDREN * REQUEST_PER_CHILD);
+
+            // check if the segment is already loaded
+            int found = 0;
+            for (int j = 0; j < i; j++) {
+              if (strcmp(response_shm[j].data, response_shm[i].data) == 0) {
+                found = 1;
+                break;
+              }
             }
-            fclose(file_output);
-            return 1;
-            //exit(0);
-        }
 
-    }
-    //read request parent
+            if (!found) {
+              // read the requested segment from the file
+              FILE *file = fopen("file.txt", "r");
+              char data[100];
+              for (int j = 0; j < segment; j++) {
+                fgets(data, 100, file);
+              }
+              fclose(file);
 
-    int cnt = 0;
-    int request_table[child_num];
-    int current_segm = -3;
-    
-    for (int i = 0; i < max_requests; i++) {
-       
-                
-        if(current_segm != sha_mem_req->segment_child){
-            int segm_to_load = sha_mem_req->segment_child;
-            FILE *file_inp = fopen(file_name, "r");
-            for (int y = 0; y <= segments-1; y++){
-                for (int z = 0; z <= segments_line-1; z++){
-                    char line_detail[MAX_LINE_LENGTH] = {0};
-                    fgets(line_detail, MAX_LINE_LENGTH, file_inp);   
-                    if (segm_to_load == y){
-                        sha_mem_resp->segment_detail[z].line = z;
-                        strcpy(sha_mem_resp->segment_detail[z].info,line_detail); 
-                    }
-                }
+              // set the response shared memory
+              strcpy(response_shm->data, data);
             }
-            fclose(file_inp);
-            current_segm = segm_to_load;
-            
+
+            // signal the segment semaphore to indicate the segment has been loaded
+            sem_post(segment_sems[segment - 1]);
+
+            // signal the response semaphore to let the child know the response is ready
+            sem_post(response_sem);
         }
+    }
+         
+ 
+
+   // semaphore_wait(mutex_p_sem,sem_mutex_p_file);
+   // for (size_t i = 0; i < request_per_child; i++) { //max_requests
+   //     cout << "Parent loop :" << i <<endl;
+   //     writer( sha_mem_req,  sha_mem_resp,mutex_rw_sem , sem_mutex_rw_file, segments_lines, segments, file_name);
+   // }    
 
     
-        
+    while (wait(NULL) > 0);
+ 
 
-    }
-            
-    for(int a = 0; a < child_num; a++) {
-        if (waitpid(pids[a],NULL,0)<0){
-            perror("waitpid(2) faild");
-        }
-    
-    }
 }
+ 
+   
+     
+   
+
+    
+    
+    
+            
+ 
 
     
     
@@ -334,5 +318,10 @@ int generate_segments_and_file(char file_name_[50], int lines_seg,int segments){
     fclose(file_inp);
 
 }
+ 
 
 
+ 
+
+ 
+ 

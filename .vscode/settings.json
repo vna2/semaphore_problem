@@ -4,6 +4,7 @@
         "ostream": "cpp",
         "algorithm": "cpp",
         "*.tcc": "c",
-        "new": "cpp"
+        "new": "cpp",
+        "string_view": "cpp"
     }
 }
