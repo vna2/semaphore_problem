@@ -205,14 +205,21 @@ int main(int argc, char const *argv[]) {
         char outname[50];
         sprintf(outname,"outputs/child.%d",getpid());
         FILE *file_output = fopen(outname, "a+");
-      
         time_t t;
         srand((int) time(&t) % getpid());  
+        int segments_log[REQUEST_PER_CHILD];
         for (int i = 0; i < REQUEST_PER_CHILD; i++) {
             clock_t time_start = clock();
-            // generate a random segment to request
+            // rand() segment to request
             int segment_rand = rand() % segments + 1;
             int rand_line    = rand() % segments_lines;
+            //if (i == 0){
+            //    segments_log[i] = segment_rand;
+            //}
+            //if(i > 0){
+//
+            //}
+            
 
             // wait for the segment semaphore to be available
             semaphore_wait(samaphore_names_segm[segment_rand - 1].sem_key,samaphore_names_segm[segment_rand - 1].semaphore_name);
@@ -233,19 +240,18 @@ int main(int argc, char const *argv[]) {
             // wait for the response semaphore to be available
             semaphore_wait(response_sem ,sem_response_file);
 
-            // print the response data
+            // write the data to file
             printf("Child %d received response for segment %d: %s\n", getpid(), segment_rand, sha_mem_resp->segment_info[rand_line].line_info);
             clock_t time_end = clock();
             char line_to_print[500];
             sprintf(line_to_print ,"Child with Pid %d Reads Segment: %d Line:%d time_start: %ld time_stop: %ld Line Detail: %s\n",
              getpid(),segment_rand,rand_line,time_start, time_end,sha_mem_resp->segment_info[rand_line].line_info);
-            ////to-print-delete
-            cout << "1 Ta kataferame we did it : " << line_to_print << endl; 
             fputs(line_to_print,file_output);
             // signal the response semaphore to indicate the response has been handled
             semaphore_signal(response_sem ,sem_response_file);
 
         }
+        exit(0);
     } else {
         // parent process
         for (int i = 0; i < NUM_CHILDREN * REQUEST_PER_CHILD; i++) {
@@ -267,6 +273,7 @@ int main(int argc, char const *argv[]) {
 
             if (!found) {
                 // read the requested segment from the file
+                usleep(30);
                 FILE *file_inp = fopen(file_name, "r");
                 for (int y = 0; y <= segments; y++){
                     for (int z = 0; z < segments_lines; z++){
@@ -280,8 +287,6 @@ int main(int argc, char const *argv[]) {
                 }
                 fclose(file_inp);
 
-              // set the response shared memory
-              //strcpy(sha_mem_resp->data, data);
             }
 
             // signal the segment semaphore to indicate the segment has been loaded
@@ -292,39 +297,20 @@ int main(int argc, char const *argv[]) {
         }
     }
          
-     while (wait(NULL) > 0);
+    while (wait(NULL) > 0);
 
-   // semaphore_wait(mutex_p_sem,sem_mutex_p_file);
-   // for (size_t i = 0; i < request_per_child; i++) { //max_requests
-   //     cout << "Parent loop :" << i <<endl;
-   //     writer( sha_mem_req,  sha_mem_resp,mutex_rw_sem , sem_mutex_rw_file, segments_lines, segments, file_name);
-   // }    
-
-    
-
+    clear_mem(file_shared_mem_data_log,sizeof(request_queue));
+    clear_mem(file_sha_mem_req,sizeof(shm_data));
+    clear_mem(file_sha_mem_resp,sizeof(shm_data)); 
+    for (size_t i = 0; i < segments; i++){
+        clear_sem(samaphore_names_segm[i].semaphore_name);
+    }
+    clear_sem(sem_response_file);
+    clear_sem(sem_request_file);
  
 
 }
  
-   
-     
-   
-
-    
-    
-    
-            
- 
-
-    
-    
-    //clear_mem(file_sha_mem,shared_mem_size);
-    //Detached all shared memory
-    //for (int i = 0; i < segments; i++){ 
-    //    clear_mem(mem_info_arr[i].name_file,shared_mem_size);
-    //}
-
-
  
 int generate_segments_and_file(char file_name_[50], int lines_seg,int segments){
     int  line_count = 0;
