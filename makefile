@@ -3,7 +3,7 @@ SOURCE	= main.cpp shared_mem_sem.cpp
 HEADER	= shared_mem_sem.hpp shared_memory_class.hpp  
 OUT	= a.out
 CC	 = g++
-FLAGS	 = -g3 -c
+FLAGS	 = -g3 -c -g
 LFLAGS	 = -lpthread
 
 all: $(OBJS)
@@ -19,7 +19,7 @@ shared_mem_sem.o: shared_mem_sem.cpp
 
 
 clean:
-	rm -f $(OBJS) $(OUT) keys/* files/* outputs/* 
+	rm -f $(OBJS) $(OUT) keys/* files/* outputs/*  input_file.txt
 
 debug: $(OUT)
 	valgrind $(OUT)

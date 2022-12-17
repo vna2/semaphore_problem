@@ -1,0 +1,18 @@
+Το παρών πρόγραμμα προσομοιώνει το πρόβλημα των readers writers. 
+Η διεργασίας πατέρας που είναι ο writer διαβάζει αίματα μέσω της shared memory απο τις διεργασίες πεδία (readers).
+Το κάθε παιδί ζητάει ένα segment από το πάτερα και ο πατέρας γυρνάει πίσω στην shared memory με την Μόρφη response.
+Παράλληλα τα αιτήματα μπαίνουν σε μια ουρά fifo ώστε να κρατάτε το priority ανά segment . Όταν ένα request άφορα segment που είναι είδη στην διαμοιραζόμενη μνήμη δεν φορτωνεται ξανα και priority περνουν τα request που εχουν ιδιο segment. 
+Για την υλοποίηση του προγράμματος έχουμε Ν διεργασίες readers και 1 διεργασία γονέα writer . Αποτελείτε από 3 shared memory ένα για το request ενα για το response και ενα για το fifo . χρησιποιηθηκε ένα πλήθος σημαφόρων ανά segment για των συγχρονισμό των segments , ένας για κάθε request και ένας για κάθε response ώστε να επιτευχθεί ο συγχρονισμός ώστε ο πατέρας να διαβάζει το request μονό όταν έχει στείλει το παιδί και από την μεριά του το παιδί να γράφει στο αρχείο το response μονό όταν εχει γεμίσει η shares memory.   
+
+Το πρόγραμμα τρέχει τρέποντας τις μεταβλητές στην μαιν που είναι ορισμένες σαν defines και είναι οι κάτωθι 
+#define NUM_CHILDREN      5 //Proccess number(readers)
+#define REQUEST_PER_CHILD 100 //Request Per Procces
+#define SEGMENTS          2 
+#define LINES_PER_SEGMENT 50 // line that file haD
+#define MAX_LINES_FILE    1000   // How many lines the file had
+#define FILE_NAME    " "
+#define MAX_LINE_LENGTH   20
+
+Το πρόγραμμα κάνει generate ενα αρχείο για input και στην κάθε γραμμή γεμίζει ενα νούμερο . αυτό έγινε για να πραγματοποιεί τεστ οτι κάθε φωρα δίνεται το σωστό μήνυμα στο output στο output του καθε παιδιου  
+
+Για complie make και για run ./a.out
